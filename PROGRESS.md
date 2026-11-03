@@ -39,7 +39,7 @@ Password `Demo@1234` for all. The one-click demo buttons were removed from `/log
 
 ⚠️ **`npm run db:seed` deletes these accounts.** If the database is re-seeded, they must be re-created (same emails, `Demo@1234`).
 
-**Vercel ↔ GitHub:** the Vercel project had no Git connection, so pushes didn't deploy. The user connected it on 2026-11-03 (Settings → Git). Pushes to `main` should now deploy automatically.
+**Vercel ↔ GitHub (unresolved, 2026-11-03):** pushes to `main` don't trigger Vercel builds. GitHub has no Vercel status or deployment on any commit, including those from before the first deploy. So the live deployment didn't come through the GitHub integration (probably a direct upload or one-time import). The live site still runs the old code in `iad1`. Fix: give the Vercel GitHub app access to this repo and reconnect it under Vercel → Settings → Git, or deploy with the Vercel CLI and a token.
 
 ### Navigation speed fix (2026-11-03)
 The user reported that pages didn't open on click (they had to click several times and reload). Measured on the live site: 0.8–5 s per click with no visual feedback (once 35 s), and ~10 s to log in. Causes:
