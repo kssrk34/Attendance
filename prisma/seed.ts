@@ -6,7 +6,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
-import { PrismaClient, type LeaveStatus, type Role } from "../src/generated/prisma/client";
+import { type LeaveStatus, type Prisma, PrismaClient, type Role } from "../src/generated/prisma/client";
 import {
   DEFAULT_BRANDING,
   DEFAULT_SETTINGS,
@@ -106,28 +106,33 @@ const LEAVE_TYPES = [
   { name: "Earned Leave", code: "EL", annualQuota: 15 },
 ];
 
+/** Everything runs in one transaction: if anything fails (e.g. the network drops), nothing changes. */
 async function main() {
+  await db.$transaction((tx) => seed(tx), { maxWait: 60_000, timeout: 15 * 60_000 });
+}
+
+async function seed(tx: Prisma.TransactionClient) {
   const today = todayKey();
   const year = yearOf(today);
   const settings = DEFAULT_SETTINGS;
   console.log(`Seeding demo data relative to ${today} (Asia/Kolkata)…`);
 
   // ---- wipe ----
-  await db.auditLog.deleteMany();
-  await db.attendanceRecord.deleteMany();
-  await db.leaveRequest.deleteMany();
-  await db.leaveBalance.deleteMany();
-  await db.holiday.deleteMany();
-  await db.leaveType.deleteMany();
-  await db.user.updateMany({ data: { managerId: null } });
-  await db.user.deleteMany();
-  await db.department.deleteMany();
-  await db.settings.deleteMany();
-  await db.branding.deleteMany();
+  await tx.auditLog.deleteMany();
+  await tx.attendanceRecord.deleteMany();
+  await tx.leaveRequest.deleteMany();
+  await tx.leaveBalance.deleteMany();
+  await tx.holiday.deleteMany();
+  await tx.leaveType.deleteMany();
+  await tx.user.updateMany({ data: { managerId: null } });
+  await tx.user.deleteMany();
+  await tx.department.deleteMany();
+  await tx.settings.deleteMany();
+  await tx.branding.deleteMany();
 
   // ---- config ----
-  await db.settings.create({ data: { id: 1, ...settings } });
-  await db.branding.create({
+  await tx.settings.create({ data: { id: 1, ...settings } });
+  await tx.branding.create({
     data: {
       id: 1,
       appName: DEFAULT_BRANDING.appName,
@@ -140,14 +145,14 @@ async function main() {
   // ---- holidays (current year; also neighbouring years when the 90-day window or upcoming leave reaches them) ----
   const holidayYears = new Set([year, yearOf(addDaysKey(today, -100)), yearOf(addDaysKey(today, 45))]);
   const holidayRows = [...holidayYears].flatMap(holidaysFor);
-  await db.holiday.createMany({ data: holidayRows.map((h) => ({ date: keyToDbDate(h.date), name: h.name })) });
+  await tx.holiday.createMany({ data: holidayRows.map((h) => ({ date: keyToDbDate(h.date), name: h.name })) });
   const holidays = new Set(holidayRows.map((h) => h.date));
   const working = (k: DateKey) => isWorkingDay(k, settings, holidays);
 
   // ---- departments ----
   const depts: Record<string, string> = {};
   for (const name of ["Engineering", "QA", "HR", "Sales"]) {
-    depts[name] = (await db.department.create({ data: { name } })).id;
+    depts[name] = (await tx.department.create({ data: { name } })).id;
   }
 
   // ---- users ----
@@ -157,7 +162,7 @@ async function main() {
   for (const u of USERS) {
     const jk = typeof u.joined === "number" ? addDaysKey(today, -u.joined) : u.joined;
     joinKey[u.key] = jk;
-    const created = await db.user.create({
+    const created = await tx.user.create({
       data: {
         name: u.name,
         email: u.email,
@@ -171,12 +176,12 @@ async function main() {
     ids[u.key] = created.id;
   }
   for (const u of USERS) {
-    if (u.manager) await db.user.update({ where: { id: ids[u.key] }, data: { managerId: ids[u.manager] } });
+    if (u.manager) await tx.user.update({ where: { id: ids[u.key] }, data: { managerId: ids[u.manager] } });
   }
 
   // ---- leave types ----
   const types: Record<string, string> = {};
-  for (const t of LEAVE_TYPES) types[t.code] = (await db.leaveType.create({ data: t })).id;
+  for (const t of LEAVE_TYPES) types[t.code] = (await tx.leaveType.create({ data: t })).id;
 
   // ---- leave requests ----
   /** n working days starting at the first working day on/after `from`, kept inside one calendar year. */
@@ -243,7 +248,7 @@ async function main() {
     const createdOn = p.from < 0 ? addDaysKey(start, -between(3, 10)) : addDaysKey(today, -between(1, 4));
     const createdAt = zonedInstant(createdOn, "11:15");
     const decidedAt = p.decidedBy ? zonedInstant(addDaysKey(createdOn, 1), "15:40") : null;
-    const req = await db.leaveRequest.create({
+    const req = await tx.leaveRequest.create({
       data: {
         userId,
         leaveTypeId: typeId,
@@ -258,11 +263,11 @@ async function main() {
         createdAt,
       },
     });
-    await db.auditLog.create({
+    await tx.auditLog.create({
       data: { actorId: userId, action: "LEAVE_APPLIED", entityType: "LeaveRequest", entityId: req.id, details: { start, end, days, type: p.type }, createdAt },
     });
     if (p.status === "APPROVED" || p.status === "REJECTED") {
-      await db.auditLog.create({
+      await tx.auditLog.create({
         data: {
           actorId: ids[p.decidedBy!],
           action: p.status === "APPROVED" ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
@@ -274,7 +279,7 @@ async function main() {
       });
     }
     if (p.status === "CANCELLED") {
-      await db.auditLog.create({
+      await tx.auditLog.create({
         data: { actorId: userId, action: "LEAVE_CANCELLED", entityType: "LeaveRequest", entityId: req.id, details: { previousStatus: "PENDING" }, createdAt: zonedInstant(today, "08:30") },
       });
     }
@@ -297,7 +302,7 @@ async function main() {
       }
     }
   }
-  await db.leaveBalance.createMany({ data: balances });
+  await tx.leaveBalance.createMany({ data: balances });
 
   // ---- attendance (last ~90 days + today) ----
   const now = new Date();
@@ -343,7 +348,7 @@ async function main() {
       }
     }
   }
-  await db.attendanceRecord.createMany({ data: records });
+  await tx.attendanceRecord.createMany({ data: records });
 
   console.log(
     `Done: ${USERS.length} users, ${holidayRows.length} holidays, ${plans.length} leave requests, ${records.length} attendance records.`,
