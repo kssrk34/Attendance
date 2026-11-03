@@ -125,7 +125,9 @@ Covered flows: employee check-in/check-out; apply → manager approves → balan
 1. Sign up at [neon.tech](https://neon.tech) and create a project (pick a region close to your users, e.g. Singapore or Mumbai for India).
 2. On the project dashboard, open **Connect** and copy two connection strings:
    - the **pooled** one (host contains `-pooler`): use as `DATABASE_URL`
-   - the **direct** one (toggle "Connection pooling" off): use as `DIRECT_URL` (used only for migrations)
+   - the **direct** one (toggle "Connection pooling" off): use as `DATABASE_URL_UNPOOLED` (used only for migrations)
+
+   If you use the Neon CLI (`neon init` + `neon deploy`), it writes both into `.env` for you with these names.
 
 ### 2. Push the code to GitHub
 Create a GitHub repository and push this project (the `.env` file is git-ignored and must never be committed).
@@ -134,18 +136,18 @@ Create a GitHub repository and push this project (the `.env` file is git-ignored
 1. In [Vercel](https://vercel.com), click **Add New → Project** and import the GitHub repository. The framework is detected as Next.js. The build command comes from `vercel.json` (`npm run vercel-build`).
 2. Under **Environment Variables**, add these for Production (and Preview if you use it):
    - `DATABASE_URL`: Neon pooled connection string
-   - `DIRECT_URL`: Neon direct connection string
+   - `DATABASE_URL_UNPOOLED`: Neon direct connection string
    - `AUTH_SECRET`: a long random string (`npx auth secret`)
 3. Click **Deploy**. Each build runs `prisma generate`, then `prisma migrate deploy` (creates/updates the tables), then `next build`.
 
 ### 4. Seed the production database (once, from your computer)
 Run the seed against Neon from your machine. Put the Neon strings in your shell (or a temporary `.env`) and run:
 ```bash
-DATABASE_URL="<neon pooled url>" DIRECT_URL="<neon direct url>" npm run db:seed
+DATABASE_URL="<neon pooled url>" DATABASE_URL_UNPOOLED="<neon direct url>" npm run db:seed
 ```
 On Windows PowerShell:
 ```powershell
-$env:DATABASE_URL="<neon pooled url>"; $env:DIRECT_URL="<neon direct url>"; npm run db:seed
+$env:DATABASE_URL="<neon pooled url>"; $env:DATABASE_URL_UNPOOLED="<neon direct url>"; npm run db:seed
 ```
 ⚠️ The seed **deletes all existing data**. Run it only to set up a fresh demo, never on a database with real data.
 

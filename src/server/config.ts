@@ -63,7 +63,9 @@ const loadBranding = unstable_cache(
     };
   },
   ["branding-v1"],
-  { tags: [BRANDING_TAG] },
+  // Cleared instantly on save via the tag; the 60s expiry is a safety net for self-hosted
+  // servers, where a tag invalidation doesn't survive a restart.
+  { tags: [BRANDING_TAG], revalidate: 60 },
 );
 
 /** Branding is cached on the server; the cache is cleared whenever it's saved. */

@@ -45,3 +45,5 @@ Things the spec left open, and the simple option chosen:
 - **Uploaded SVG logos** are only shown via `<img>` and served from `/brand-icon` with a strict CSP, so scripts inside them never run.
 - **CSV exports** start with a UTF-8 BOM (so Excel opens names correctly) and neutralise cells that look like spreadsheet formulas.
 - **`npm run db:reset`** runs `prisma migrate reset --force` then the seed. Prisma refuses to run reset when invoked by an AI agent without explicit consent, so the build sessions used `npm run db:seed`, which wipes and recreates all data by itself.
+- **Neon wiring**: the app uses `pg` (node-postgres) through `@prisma/adapter-pg` on the pooled `DATABASE_URL`, with `attachDatabasePool` from `@vercel/functions` (Neon's recommendation for Vercel Fluid compute). Migrations use the direct `DATABASE_URL_UNPOOLED` (`DIRECT_URL` also accepted).
+- **Branding cache** also expires after 60 seconds, as a safety net for self-hosted servers where a tag invalidation doesn't survive a restart.
