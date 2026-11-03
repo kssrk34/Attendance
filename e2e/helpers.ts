@@ -2,10 +2,16 @@ import { type Page, expect } from "@playwright/test";
 
 export type DemoRole = "Employee" | "Manager" | "HR Admin";
 
+/** Seeded demo accounts (see prisma/seed.ts). */
+const DEMO_EMAILS: Record<DemoRole, string> = {
+  Employee: "employee@example.com",
+  Manager: "manager@example.com",
+  "HR Admin": "admin@example.com",
+};
+const DEMO_PASSWORD = "Demo@1234";
+
 export async function loginAs(page: Page, role: DemoRole) {
-  await page.goto("/login");
-  await page.getByRole("button", { name: `Log in as ${role}` }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+  await loginWith(page, DEMO_EMAILS[role], DEMO_PASSWORD);
 }
 
 export async function loginWith(page: Page, email: string, password: string) {

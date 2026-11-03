@@ -11,7 +11,9 @@ import { PrismaClient } from "@/generated/prisma/client";
 function createClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not set");
-  const pool = new Pool({ connectionString });
+  // Fail with an error page instead of hanging forever if a connection can't be opened
+  // (the default is to wait indefinitely). Generous enough for a database waking from sleep.
+  const pool = new Pool({ connectionString, connectionTimeoutMillis: 15_000 });
   // On Vercel (Fluid compute) this keeps the function alive long enough to close idle
   // connections before it's suspended; elsewhere it does nothing.
   attachDatabasePool(pool);

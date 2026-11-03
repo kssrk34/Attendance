@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { Prisma } from "@/lib/db";
 import { db } from "@/lib/db";
 import type { CurrentUser } from "./session";
@@ -13,8 +14,9 @@ export function actionableWhere(user: CurrentUser): Prisma.LeaveRequestWhereInpu
   return null;
 }
 
-export async function countPendingApprovals(user: CurrentUser): Promise<number> {
+/** Cached per request, so the sidebar badge and the dashboard share one query. */
+export const countPendingApprovals = cache(async (user: CurrentUser): Promise<number> => {
   const where = actionableWhere(user);
   if (!where) return 0;
   return db.leaveRequest.count({ where });
-}
+});

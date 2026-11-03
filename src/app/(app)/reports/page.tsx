@@ -1,6 +1,7 @@
 import { BarChart3, Download, Umbrella } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
+import { FilterForm, FilterSubmit } from "@/components/form/filter-form";
 import { PageHeader } from "@/components/page-header";
 import { LeaveStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <form method="get" className="flex flex-wrap items-end gap-3">
+              <FilterForm action="/reports" className="flex flex-wrap items-end gap-3">
                 <input type="hidden" name="tab" value="attendance" />
                 <div className="space-y-1.5">
                   <Label htmlFor="r-month">Month</Label>
@@ -82,15 +83,13 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
                     ))}
                   </NativeSelect>
                 </div>
-                <Button type="submit" variant="outline" size="lg">
-                  Show
-                </Button>
+                <FilterSubmit>Show</FilterSubmit>
                 <Button asChild size="lg" className="ml-auto">
                   <a href={`/api/reports/attendance?${attQuery}`} download>
                     <Download /> Export CSV
                   </a>
                 </Button>
-              </form>
+              </FilterForm>
               {attendance.length === 0 ? (
                 <EmptyState icon={BarChart3} title="No employees match" description="Try another department." />
               ) : (
@@ -138,7 +137,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
               <CardDescription>All requests that overlap the selected dates.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <form method="get" className="flex flex-wrap items-end gap-3">
+              <FilterForm action="/reports" className="flex flex-wrap items-end gap-3">
                 <input type="hidden" name="tab" value="leave" />
                 <div className="space-y-1.5">
                   <Label htmlFor="l-from">From</Label>
@@ -170,15 +169,13 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reports"
                     ))}
                   </NativeSelect>
                 </div>
-                <Button type="submit" variant="outline" size="lg">
-                  Show
-                </Button>
+                <FilterSubmit>Show</FilterSubmit>
                 <Button asChild size="lg" className="ml-auto">
                   <a href={`/api/reports/leave?${leaveQuery}`} download>
                     <Download /> Export CSV
                   </a>
                 </Button>
-              </form>
+              </FilterForm>
               {leave.length === 0 ? (
                 <EmptyState icon={Umbrella} title="No leave requests match" description="Try a wider date range or other filters." />
               ) : (

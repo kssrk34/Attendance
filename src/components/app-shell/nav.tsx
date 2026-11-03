@@ -8,6 +8,7 @@ import {
   CalendarRange,
   CheckSquare,
   LayoutDashboard,
+  Loader2,
   Palette,
   ScrollText,
   Settings,
@@ -17,7 +18,7 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@/lib/rules/leave";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,16 @@ export const NAV: NavGroup[] = [
   },
 ];
 
+/** The link's icon, swapped for a spinner while the clicked page is still on its way. */
+function NavIcon({ icon: Icon }: { icon: LucideIcon }) {
+  const { pending } = useLinkStatus();
+  return pending ? (
+    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden data-testid="nav-pending" />
+  ) : (
+    <Icon className="size-4 shrink-0" aria-hidden />
+  );
+}
+
 export function NavLinks({
   role,
   pendingApprovals,
@@ -83,7 +94,6 @@ export function NavLinks({
           )}
           {group.items.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
@@ -97,7 +107,7 @@ export function NavLinks({
                     : "text-foreground/80 hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="size-4 shrink-0" aria-hidden />
+                <NavIcon icon={item.icon} />
                 <span className="flex-1">{item.label}</span>
                 {item.href === "/approvals" && pendingApprovals > 0 && (
                   <span

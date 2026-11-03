@@ -41,13 +41,17 @@ export type BalanceRow = {
 
 /** Balances for active leave types in a year, with pending days and what's available. */
 export async function getBalances(userId: string, year: number): Promise<BalanceRow[]> {
-  await ensureBalances(userId, year);
-  const [balances, pending] = await Promise.all([
+  const loadBalances = () =>
     db.leaveBalance.findMany({
       where: { userId, year, leaveType: { isActive: true } },
       include: { leaveType: true },
       orderBy: { leaveType: { name: "asc" } },
-    }),
+    });
+  // Read everything in one round trip; only write when a balance row is missing
+  // (a new year, or a leave type added since), which is rare.
+  const [activeTypes, existing, pending] = await Promise.all([
+    db.leaveType.findMany({ where: { isActive: true }, select: { id: true } }),
+    loadBalances(),
     db.leaveRequest.groupBy({
       by: ["leaveTypeId"],
       _sum: { days: true },
@@ -58,6 +62,12 @@ export async function getBalances(userId: string, year: number): Promise<Balance
       },
     }),
   ]);
+  let balances = existing;
+  const have = new Set(existing.map((b) => b.leaveTypeId));
+  if (activeTypes.some((t) => !have.has(t.id))) {
+    await ensureBalances(userId, year);
+    balances = await loadBalances();
+  }
   const pendingMap = new Map(pending.map((p) => [p.leaveTypeId, p._sum.days ?? 0]));
   return balances.map((b) => {
     const p = pendingMap.get(b.leaveTypeId) ?? 0;

@@ -1,9 +1,10 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 /** Search box that updates the `q` query param after a short pause. */
 export function SearchInput({ placeholder = "Search…" }: { placeholder?: string }) {
@@ -11,6 +12,7 @@ export function SearchInput({ placeholder = "Search…" }: { placeholder?: strin
   const pathname = usePathname();
   const params = useSearchParams();
   const [value, setValue] = useState(params.get("q") ?? "");
+  const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -20,15 +22,29 @@ export function SearchInput({ placeholder = "Search…" }: { placeholder?: strin
       if (value.trim()) p.set("q", value.trim());
       else p.delete("q");
       p.delete("page");
-      router.replace(`${pathname}${p.size ? `?${p.toString()}` : ""}`);
+      startTransition(() => router.replace(`${pathname}${p.size ? `?${p.toString()}` : ""}`));
     }, 300);
     return () => clearTimeout(id);
   }, [value, params, pathname, router]);
 
+  const Icon = pending ? Loader2 : Search;
   return (
     <div className="relative w-full sm:w-64">
-      <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-      <Input aria-label="Search" placeholder={placeholder} value={value} onChange={(e) => setValue(e.target.value)} className="pl-8" />
+      <Icon
+        className={cn(
+          "pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground",
+          pending && "animate-spin",
+        )}
+        aria-hidden
+      />
+      <Input
+        aria-label="Search"
+        aria-busy={pending || undefined}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="pl-8"
+      />
     </div>
   );
 }

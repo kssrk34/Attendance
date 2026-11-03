@@ -26,21 +26,31 @@
 - **Local `.env`** (git-ignored) points at the **Neon production** database, not the local one. Never commit it or print its values.
 
 ### Demo accounts
-Password `Demo@1234` for all. The login page has one-click buttons.
+Password `Demo@1234` for all. The one-click demo buttons were removed from `/login` (user request, 2026-11-03), so type the email and password.
 - `employee@example.com`: Arjun Mehta, Engineering
 - `manager@example.com`: Rahul Sharma, Engineering manager
 - `admin@example.com`: Kavita Iyer, HR Admin
 
+### Navigation speed fix (2026-11-03): committed locally, NOT pushed or deployed yet
+The user reported that pages didn't open on click (they had to click several times and reload). Measured on the live site: 0.8–5 s per click with no visual feedback (once 35 s), and ~10 s to log in. Causes:
+- Vercel ran the server code in `iad1` (US East) while Neon is in Singapore (~230 ms per query).
+- There were no `loading.tsx` files, so a click showed nothing until the server finished.
+
+Changes (see Decisions): `vercel.json` region `sin1`, section-level loading skeletons, sidebar/filter pending spinners, in-place report/audit filters, fewer DB round trips, `retry()` on error pages, an error page inside the app shell, and removal of the demo login buttons. All tests pass: lint, typecheck, 61 unit tests and 12 E2E tests (including the new `e2e/8-navigation.spec.ts`). The full E2E suite also passed behind a local proxy adding ~240 ms per DB round trip. With that delay, clicks gave feedback in 50–130 ms.
+
+**Next (the user wants to be present for this):**
+1. `git push` to `main`. Vercel auto-deploys from GitHub.
+2. Confirm the deploy: `curl -sI https://attendanceproject-orpin.vercel.app/login | grep -i x-vercel-id` should show `::sin1::` instead of `::iad1::`. If it still shows `iad1`, check Vercel → Settings → Functions → Region, which may override `vercel.json`.
+3. Re-time live navigation with a read-only script that logs in and clicks each sidebar link. Expect well under 1 s per click.
+
 ### Open items / next steps for the user
-1. On Vercel, set **Settings → Functions → Region = Singapore (sin1)** (next to Neon), then redeploy. Not confirmed done.
-2. Run the manual checks on the live site: check in → apply leave → manager approves → admin exports CSV, and check on a phone.
-3. Set real branding under Admin → Branding, and verify festival holiday dates under Admin → Manage holidays.
-4. Before a demo: re-run `npm run db:seed` on a stable connection, so "today" data is fresh and Arjun isn't checked in yet.
-5. Before real (non-demo) use, see README "Go live":
+1. Run the manual checks on the live site: check in → apply leave → manager approves → admin exports CSV, and check on a phone.
+2. Set real branding under Admin → Branding, and verify festival holiday dates under Admin → Manage holidays.
+3. Before a demo: re-run `npm run db:seed` on a stable connection, so "today" data is fresh and Arjun isn't checked in yet.
+4. Before real (non-demo) use, see README "Go live":
    - stop seeding
    - deactivate the demo accounts or change their passwords
-   - remove the "Demo accounts" buttons on `/login` (`src/app/login/login-form.tsx`)
-6. Possible v2 ideas, mentioned in chat but not built: login rate-limiting (Upstash Redis), attendance regularization, notifications. The README has the full v2 list.
+5. Possible v2 ideas, mentioned in chat but not built: login rate-limiting (Upstash Redis), attendance regularization, notifications. The README has the full v2 list.
 
 ### Environment quirks (user's Windows laptop)
 - **Node 26 is installed system-wide** (upgraded from 20.16 for Neon/Prisma). npm 11 holds back package install scripts until approved. If Prisma breaks after a fresh install, run `npm install-scripts approve prisma @prisma/engines esbuild`.
@@ -55,6 +65,7 @@ Password `Demo@1234` for all. The login page has one-click buttons.
 
 ### Guardrails for agents
 - `npm run db:seed` and `npm run test:e2e` **wipe the database** they point at. Check which `DATABASE_URL` is active first. Don't run them against Neon production unless the user explicitly asks.
+- Playwright **reuses any server already on port 3100** (`reuseExistingServer`). A leftover `next start -p 3100` from an earlier run serves old code (maybe pointed at another database). Stop it before `npm run test:e2e`.
 - The seed now runs in **one transaction**, so a dropped connection changes nothing and it's safe to retry.
 - Prisma blocks `prisma migrate reset` from AI agents without explicit user consent. Don't bypass it.
 - Ask before pushing, deploying, or changing system or network settings.
@@ -94,3 +105,9 @@ Things the spec left open, and the simple option chosen:
 - **`npm run db:reset`** runs `prisma migrate reset --force` then the seed. Prisma refuses to run reset when invoked by an AI agent without explicit consent, so the build sessions used `npm run db:seed`, which wipes and recreates all data by itself.
 - **Neon wiring**: the app uses `pg` (node-postgres) through `@prisma/adapter-pg` on the pooled `DATABASE_URL`, with `attachDatabasePool` from `@vercel/functions` (Neon's recommendation for Vercel Fluid compute). Migrations use the direct `DATABASE_URL_UNPOOLED` (`DIRECT_URL` also accepted).
 - **Branding cache** also expires after 60 seconds, as a safety net for self-hosted servers where a tag invalidation doesn't survive a restart.
+- **Vercel functions run in Singapore (`sin1`)**, pinned in `vercel.json`, next to the Neon database (AWS ap-southeast-1). They used to run in the default `iad1` (US East): every query crossed the Pacific (~230 ms), so each click took 1–5 s (once 35 s) and login ~10 s. If the database ever moves, change `regions` to match.
+- **Navigation feedback**: `loading.tsx` skeletons sit at the section level only: `(app)/`, `(app)/admin/` and `(app)/team/`. Switching sections shows the skeleton instantly (Next.js prefetches it). Filters inside a page (search, department, month, report forms) change only the page's search params, so no skeleton appears there. The current page stays on screen, with a small spinner, until the new data arrives. A skeleton at page level would swap out the search box while someone is typing.
+- **Pending hints**: sidebar icons turn into a spinner if a page isn't ready yet (`useLinkStatus`). Month and department pickers show the picked value immediately (`useOptimistic`).
+- **Report and audit filters** use `FilterForm` (`src/components/form/filter-form.tsx`): a client-side GET form with a pending state. Plain `<form method="get">` reloaded the whole page. `next/form` can't report a pending state, because it calls `router.push` directly.
+- **Error pages use `retry()`** (Next 16.3+), which re-fetches the page from the server. `reset()` only re-renders the same failed result, so "Try again" never worked for server errors. `(app)/error.tsx` keeps the sidebar visible when a page fails.
+- **Database pool** has a 15 s connection timeout, so a stuck connection shows the error page instead of hanging.

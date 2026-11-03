@@ -28,7 +28,7 @@ No company name or logo is built in. Each company sets its own name, logo and co
 
 ## Demo accounts
 
-All demo passwords are `Demo@1234`. The login page also has one-click demo buttons.
+All demo passwords are `Demo@1234`. Log in with one of these emails:
 
 | Role | Email |
 |---|---|
@@ -94,7 +94,7 @@ e2e               Playwright tests
    ```bash
    npm run dev
    ```
-   Open http://localhost:3000 and use a demo button.
+   Open http://localhost:3000 and log in with a demo account (see above).
 
 Useful scripts:
 
@@ -117,7 +117,7 @@ npm run test:e2e    # end-to-end tests
 
 The end-to-end tests need the database from your `.env` (for example `npm run db:local`). They **re-seed it** before running, build the app, and start it on port 3100. The first time, install the browser with `npx playwright install chromium`.
 
-Covered flows: employee check-in/check-out; apply → manager approves → balance reduced; reject requires a note; employees blocked from manager/admin pages; admin creates an employee who can log in; rebranding and reset; phone-sized layout.
+Covered flows: employee check-in/check-out; apply → manager approves → balance reduced; reject requires a note; employees blocked from manager/admin pages; admin creates an employee who can log in; rebranding and reset; phone-sized layout; navigation (every sidebar link opens on the first click, filters update the page without a reload).
 
 ## Deploying to Vercel + Neon
 
@@ -139,6 +139,7 @@ Create a GitHub repository and push this project (the `.env` file is git-ignored
    - `DATABASE_URL_UNPOOLED`: Neon direct connection string
    - `AUTH_SECRET`: a long random string (`npx auth secret`)
 3. Click **Deploy**. Each build runs `prisma generate`, then `prisma migrate deploy` (creates/updates the tables), then `next build`.
+4. **Region:** `vercel.json` runs the server code in Singapore (`"regions": ["sin1"]`), next to a Neon database in AWS Singapore. Keep these two in the same region. Every page makes several database queries, so a far-away database makes each click slow. If your Neon project is elsewhere, change `regions` to the nearest [Vercel region](https://vercel.com/docs/regions) (e.g. `bom1` for Mumbai).
 
 ### 4. Seed the production database (once, from your computer)
 Run the seed against Neon from your machine. Put the Neon strings in your shell (or a temporary `.env`) and run:

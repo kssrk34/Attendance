@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
+import { FilterForm, FilterSubmit } from "@/components/form/filter-form";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,7 +61,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/admin/audi
       <PageHeader title="Audit log" description={`${total} event${total === 1 ? "" : "s"}`} />
       <Card>
         <CardContent className="space-y-4">
-          <form method="get" className="flex flex-wrap items-end gap-3">
+          <FilterForm action="/admin/audit" className="flex flex-wrap items-end gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="a-action">Action</Label>
               <NativeSelect id="a-action" name="action" defaultValue={action ?? ""} className="w-56">
@@ -83,15 +84,13 @@ export default async function AuditPage({ searchParams }: PageProps<"/admin/audi
                 ))}
               </NativeSelect>
             </div>
-            <Button type="submit" variant="outline" size="lg">
-              Filter
-            </Button>
+            <FilterSubmit>Filter</FilterSubmit>
             {(action || actor) && (
               <Button asChild variant="ghost" size="lg">
                 <Link href="/admin/audit">Clear</Link>
               </Button>
             )}
-          </form>
+          </FilterForm>
 
           {logs.length === 0 ? (
             <EmptyState icon={ScrollText} title="No events found" description="Try different filters." />
