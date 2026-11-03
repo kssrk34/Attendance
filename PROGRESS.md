@@ -31,17 +31,24 @@ Password `Demo@1234` for all. The one-click demo buttons were removed from `/log
 - `manager@example.com`: Rahul Sharma, Engineering manager
 - `admin@example.com`: Kavita Iyer, HR Admin
 
-### Navigation speed fix (2026-11-03): committed locally, NOT pushed or deployed yet
+### Guest accounts for testers (created 2026-11-03 in the Neon production DB)
+15 extra accounts the user can hand out. Each has its own random password, given to the user in chat only. The passwords are **not** in the repo, which is public. They were created directly in the database, not by the seed. Employee N reports to manager N, so a tester pair can try apply → approve. All joined "today". Managers report to `admin@example.com`.
+- `employee1@example.com` … `employee5@example.com`
+- `manager1@example.com` … `manager5@example.com`
+- `admin1@example.com` … `admin5@example.com` (full HR admin rights)
+
+⚠️ **`npm run db:seed` deletes these accounts.** If the database is re-seeded, they must be re-created, which means new passwords to hand out again.
+
+### Navigation speed fix (2026-11-03)
 The user reported that pages didn't open on click (they had to click several times and reload). Measured on the live site: 0.8–5 s per click with no visual feedback (once 35 s), and ~10 s to log in. Causes:
 - Vercel ran the server code in `iad1` (US East) while Neon is in Singapore (~230 ms per query).
 - There were no `loading.tsx` files, so a click showed nothing until the server finished.
 
 Changes (see Decisions): `vercel.json` region `sin1`, section-level loading skeletons, sidebar/filter pending spinners, in-place report/audit filters, fewer DB round trips, `retry()` on error pages, an error page inside the app shell, and removal of the demo login buttons. All tests pass: lint, typecheck, 61 unit tests and 12 E2E tests (including the new `e2e/8-navigation.spec.ts`). The full E2E suite also passed behind a local proxy adding ~240 ms per DB round trip. With that delay, clicks gave feedback in 50–130 ms.
 
-**Next (the user wants to be present for this):**
-1. `git push` to `main`. Vercel auto-deploys from GitHub.
-2. Confirm the deploy: `curl -sI https://attendanceproject-orpin.vercel.app/login | grep -i x-vercel-id` should show `::sin1::` instead of `::iad1::`. If it still shows `iad1`, check Vercel → Settings → Functions → Region, which may override `vercel.json`.
-3. Re-time live navigation with a read-only script that logs in and clicks each sidebar link. Expect well under 1 s per click.
+Pushed to `main` on 2026-11-03.
+1. Confirm the deploy: `curl -sI https://attendanceproject-orpin.vercel.app/login | grep -i x-vercel-id` should show `::sin1::` instead of `::iad1::`. If it still shows `iad1`, check Vercel → Settings → Functions → Region, which may override `vercel.json`.
+2. Re-time live navigation with a read-only script that logs in and clicks each sidebar link. Expect well under 1 s per click.
 
 ### Open items / next steps for the user
 1. Run the manual checks on the live site: check in → apply leave → manager approves → admin exports CSV, and check on a phone.
