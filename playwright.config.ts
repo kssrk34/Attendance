@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
+// Running against a far-away database (e.g. Neon from a laptop)? Set E2E_SLOW=1 for longer waits.
+const SLOW = !!process.env.E2E_SLOW;
 
 /**
  * E2E tests run against a production build and a seeded local database.
@@ -11,8 +13,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  timeout: 60_000,
-  expect: { timeout: 10_000 },
+  timeout: SLOW ? 300_000 : 60_000,
+  expect: { timeout: SLOW ? 60_000 : 10_000 },
   reporter: [["list"]],
   globalSetup: "./e2e/global-setup.ts",
   use: {
