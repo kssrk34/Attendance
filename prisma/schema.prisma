@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Department {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(EMPLOYEE)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  managerId    String?
+  manager      User?      @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports      User[]     @relation("UserManager")
+  joinDate     DateTime   @db.Date
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  attendance     AttendanceRecord[]
+  leaveBalances  LeaveBalance[]
+  leaveRequests  LeaveRequest[]     @relation("LeaveRequester")
+  leaveDecisions LeaveRequest[]     @relation("LeaveDecider")
+  auditLogs      AuditLog[]
+
+  @@index([managerId])
+  @@index([departmentId])
+}
+
+model AttendanceRecord {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime  @db.Date
+  checkInAt  DateTime
+  checkOutAt DateTime?
+  isLate     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+model LeaveType {
+  id          String         @id @default(cuid())
+  name        String
+  code        String         @unique
+  annualQuota Int
+  isActive    Boolean        @default(true)
+  balances    LeaveBalance[]
+  requests    LeaveRequest[]
+}
+
+model LeaveBalance {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  year        Int
+  allocated   Int
+  used        Int       @default(0)
+
+  @@unique([userId, leaveTypeId, year])
+}
+
+model LeaveRequest {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation("LeaveRequester", fields: [userId], references: [id], onDelete: Cascade)
+  leaveTypeId  String
+  leaveType    LeaveType   @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  startDate    DateTime    @db.Date
+  endDate      DateTime    @db.Date
+  days         Int
+  reason       String
+  status       LeaveStatus @default(PENDING)
+  decidedById  String?
+  decidedBy    User?       @relation("LeaveDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  decisionNote String?
+  decidedAt    DateTime?
+  createdAt    DateTime    @default(now())
+
+  @@index([userId, status])
+  @@index([status])
+}
+
+model Holiday {
+  id   String   @id @default(cuid())
+  date DateTime @unique @db.Date
+  name String
+}
+
+/// Single row (id = 1)
+model Settings {
+  id               Int    @id @default(1)
+  workdayStart     String @default("09:30")
+  lateGraceMinutes Int    @default(15)
+  halfDayMinHours  Float  @default(4)
+  fullDayMinHours  Float  @default(8)
+  /// Days of week, 0 = Sunday ... 6 = Saturday
+  workingDays      Int[]  @default([1, 2, 3, 4, 5])
+}
+
+/// Single row (id = 1)
+model Branding {
+  id           Int      @id @default(1)
+  appName      String   @default("Attendance Portal")
+  companyName  String   @default("Your Company")
+  /// Data URL (PNG/SVG/JPG/WebP, max 300 KB)
+  logo         String?
+  primaryColor String   @default("#2563eb")
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([actorId])
+}
