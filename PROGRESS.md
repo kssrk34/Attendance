@@ -37,7 +37,9 @@ Password `Demo@1234` for all. The one-click demo buttons were removed from `/log
 - `manager1@example.com` … `manager5@example.com`
 - `admin1@example.com` … `admin5@example.com` (full HR admin rights)
 
-⚠️ **`npm run db:seed` deletes these accounts.** If the database is re-seeded, they must be re-created (same emails, `Demo@1234`).
+Also 9 **private test accounts for the user only** (not shared with testers), same password: `test.employee1–3@example.com`, `test.manager1–3@example.com`, `test.admin1–3@example.com`. Test employee N reports to test manager N.
+
+⚠️ **`npm run db:seed` deletes all of these accounts.** If the database is re-seeded, they must be re-created (same emails, `Demo@1234`).
 
 **Vercel ↔ GitHub (2026-11-03):** Vercel used to deploy from a private copy, `kssrk34/attendance_project`. It held a one-commit snapshot that Vercel created at the first deploy. So pushes to `kssrk34/Attendance` never deployed. The user deleted that copy. `kssrk34/Attendance` is the only repo now, and Vercel must be connected to it (Settings → Git, branch `main`). Check: a push should get a "Vercel" commit status on GitHub within seconds.
 
