@@ -3,7 +3,7 @@
 ## Phases
 
 - [x] **Phase 0 — Setup**: Next.js 16 + TypeScript + Tailwind v4 + shadcn/ui, ESLint, Prisma 7, Vitest, Playwright, folder structure, CLAUDE.md, PROGRESS.md, .env.example, git.
-- [x] **Phase 1 — Data & auth**: Prisma schema + migration, seed script, Auth.js credentials login, demo login buttons, role-based route protection, app shell with role-aware navigation.
+- [x] **Phase 1 — Data & auth**: Prisma schema + migration, seed script, Auth.js credentials login, demo login buttons (removed 2026-11-03), role-based route protection, app shell with role-aware navigation.
 - [x] **Phase 2 — Rules module**: business rules as pure functions in `src/lib/rules` with Vitest coverage.
 - [x] **Phase 3 — Attendance**: check-in/out, dashboard card with live IST clock, `/attendance` calendar + table.
 - [x] **Phase 4 — Leave**: balances, apply form with live day count, my requests, cancel, `/approvals`, approve/reject flow.
@@ -12,78 +12,114 @@
 - [x] **Phase 7 — Quality pass**: brand-name sweep, Playwright tests, phone-sized check, empty/loading/error states, accessibility basics, README.
 - [x] **Phase 8 — Deploy prep**: production build verified against a fresh database with `prisma migrate deploy` + seed; deployment steps in README.
 
-## Current status (handoff — last updated 2026-11-03)
+## Current status (handoff — last updated 2026-11-03, end of session)
 
-**v1 is built, deployed and seeded.** All phases above are done. Nothing is half-built.
+**v1 is built, deployed and live.** All phases above are done. Nothing is half-built. The user is now sharing the live site with other people for feedback. A likely next session collects that feedback and plans v2.
 
 ### Where things live
-- **GitHub:** https://github.com/kssrk34/Attendance (branch `main`; owner account `kssrk34`; pushing works with the stored git credential)
-- **Live site (Vercel):** https://attendanceproject-orpin.vercel.app
+- **GitHub:** https://github.com/kssrk34/Attendance (public; branch `main`; owner account `kssrk34`). This is the **only** repo for the project. Pushing works with the stored git credential.
+  - A private copy, `kssrk34/attendance_project`, existed because Vercel created it at the first deploy and built from it. The user **deleted it on 2026-11-03**. Ignore any mention of it.
+- **Live site (Vercel):** https://attendanceproject-orpin.vercel.app (Vercel project `attendanceproject`)
+  - **Connected to `kssrk34/Attendance`, branch `main`. Every push to `main` deploys to production in about 1 minute.** GitHub then shows a "Vercel" status on the commit: pending, then "Deployment has completed".
+  - Functions run in **Singapore (`sin1`)**, pinned in `vercel.json`. Check: `curl -sI https://attendanceproject-orpin.vercel.app/login | grep -i x-vercel-id` should contain `::sin1::`.
   - Build command comes from `vercel.json` → `npm run vercel-build`: `prisma generate && prisma migrate deploy && next build`
-  - Vercel env vars: `DATABASE_URL` (Neon pooled), `DATABASE_URL_UNPOOLED` (Neon direct), `AUTH_SECRET`. All three must be ticked for Production. A missing database variable makes the build fail with "datasource.url property is required".
+  - Vercel env vars: `DATABASE_URL` (Neon pooled), `DATABASE_URL_UNPOOLED` (Neon direct), `AUTH_SECRET`. All three must be ticked for Production (and for Preview, if preview deployments are wanted). A missing database variable makes the build fail with "datasource.url property is required".
+  - There's no Vercel CLI or `gh` CLI on the laptop, and no Vercel login. Deploys happen only by pushing to GitHub.
 - **Database (Neon):** org `org-winter-wind-95364177`, project `autumn-morning-41078130`, branch `production`, region AWS ap-southeast-1 (Singapore). Created with `neon init` + `neon deploy` (`neon.ts` is in the repo; `.neon` is git-ignored).
-  - Migrations applied. Demo data seeded on 2026-11-03.
+  - Migrations applied. Demo data seeded on 2026-11-03. Extra accounts added the same day (below).
 - **Local `.env`** (git-ignored) points at the **Neon production** database, not the local one. Never commit it or print its values.
 
-### Demo accounts
-Password `Demo@1234` for all. The one-click demo buttons were removed from `/login` (user request, 2026-11-03), so type the email and password.
-- `employee@example.com`: Arjun Mehta, Engineering
-- `manager@example.com`: Rahul Sharma, Engineering manager
-- `admin@example.com`: Kavita Iyer, HR Admin
+### Accounts on the live site (all use the password `Demo@1234`)
+There are no one-click demo buttons any more. They were removed from `/login` at the user's request on 2026-11-03, so people type the email and password. `Demo@1234` is also printed in the public README, so these accounts are not secret.
 
-### Guest accounts for testers (created 2026-11-03 in the Neon production DB)
-15 extra accounts the user can hand out. All use the shared demo password `Demo@1234`; they briefly had unique passwords, but the user found that confusing. They were created directly in the database, not by the seed. Employee N reports to manager N, so a tester pair can try apply → approve. All joined "today". Managers report to `admin@example.com`.
-- `employee1@example.com` … `employee5@example.com`
-- `manager1@example.com` … `manager5@example.com`
-- `admin1@example.com` … `admin5@example.com` (full HR admin rights)
+**Seeded demo accounts** (with ~90 days of sample history):
 
-Also 9 **private test accounts for the user only** (not shared with testers), same password: `test.employee1–3@example.com`, `test.manager1–3@example.com`, `test.admin1–3@example.com`. Test employee N reports to test manager N.
+| Role | Name | Email |
+|---|---|---|
+| Employee | Arjun Mehta (Engineering) | employee@example.com |
+| Manager | Rahul Sharma (Engineering manager) | manager@example.com |
+| HR Admin | Kavita Iyer | admin@example.com |
 
-⚠️ **`npm run db:seed` deletes all of these accounts.** If the database is re-seeded, they must be re-created (same emails, `Demo@1234`).
+**15 tester accounts**, shared by the user with other people (e.g. over WhatsApp). They have no history and joined 2026-11-03. Employee N reports to manager N. Managers report to `admin@example.com`.
 
-**Vercel ↔ GitHub (2026-11-03):** Vercel used to deploy from a private copy, `kssrk34/attendance_project`. It held a one-commit snapshot that Vercel created at the first deploy. So pushes to `kssrk34/Attendance` never deployed. The user deleted that copy. `kssrk34/Attendance` is the only repo now, and Vercel must be connected to it (Settings → Git, branch `main`). Check: a push should get a "Vercel" commit status on GitHub within seconds.
+| # | Employee | Manager | HR Admin |
+|---|---|---|---|
+| 1 | Aarav Kapoor (Engineering), employee1@example.com | Arnav Sethi (Engineering), manager1@example.com | Shalini Mehra, admin1@example.com |
+| 2 | Ishita Banerjee (QA), employee2@example.com | Kavya Shetty (QA), manager2@example.com | Gaurav Saxena, admin2@example.com |
+| 3 | Kabir Malhotra (Sales), employee3@example.com | Dev Arora (Sales), manager3@example.com | Pallavi Jain, admin3@example.com |
+| 4 | Nandini Iyer (HR), employee4@example.com | Ritu Chawla (HR), manager4@example.com | Rajesh Kumar, admin4@example.com |
+| 5 | Tanvi Deshpande (Engineering), employee5@example.com | Nikhil Bose (Engineering), manager5@example.com | Swati Agarwal, admin5@example.com |
 
-### Navigation speed fix (2026-11-03)
-The user reported that pages didn't open on click (they had to click several times and reload). Measured on the live site: 0.8–5 s per click with no visual feedback (once 35 s), and ~10 s to log in. Causes:
-- Vercel ran the server code in `iad1` (US East) while Neon is in Singapore (~230 ms per query).
-- There were no `loading.tsx` files, so a click showed nothing until the server finished.
+**9 private test accounts for the user only** (not shared). Same setup: test employee N reports to test manager N.
 
-Changes (see Decisions): `vercel.json` region `sin1`, section-level loading skeletons, sidebar/filter pending spinners, in-place report/audit filters, fewer DB round trips, `retry()` on error pages, an error page inside the app shell, and removal of the demo login buttons. All tests pass: lint, typecheck, 61 unit tests and 12 E2E tests (including the new `e2e/8-navigation.spec.ts`). The full E2E suite also passed behind a local proxy adding ~240 ms per DB round trip. With that delay, clicks gave feedback in 50–130 ms.
+| # | Employee | Manager | HR Admin |
+|---|---|---|---|
+| 1 | Riya Sen (Engineering), test.employee1@example.com | Manish Trivedi (Engineering), test.manager1@example.com | Asha Nambiar, test.admin1@example.com |
+| 2 | Yash Thakur (QA), test.employee2@example.com | Leela Fernandes (QA), test.manager2@example.com | Kunal Ghosh, test.admin2@example.com |
+| 3 | Zoya Qureshi (Sales), test.employee3@example.com | Omkar Patil (Sales), test.manager3@example.com | Preeti Sinha, test.admin3@example.com |
 
-**Deployed and verified live on 2026-11-03.** The response header `x-vercel-id` shows `sin1`. A read-only re-time on the live site, as admin and employee, gave: click feedback in 30–70 ms (was 0.8–5 s with none), pages fully loaded in 0.25–0.9 s, usually ~0.35 s (was 0.8–35 s), and login in ~2 s (was ~10 s). No browser errors.
+All HR admins are in the HR department. The 24 extra accounts were created directly in the Neon database by one-off scripts (deleted afterwards, not in the repo). Each script did what the app's "create employee" does: bcrypt hash (cost 10), leave balances for the current year, and an `EMPLOYEE_CREATED` audit entry with `admin@example.com` as the actor.
 
-### Open items / next steps for the user
-1. Run the manual checks on the live site: check in → apply leave → manager approves → admin exports CSV, and check on a phone.
-2. Set real branding under Admin → Branding, and verify festival holiday dates under Admin → Manage holidays.
-3. Before a demo: re-run `npm run db:seed` on a stable connection, so "today" data is fresh and Arjun isn't checked in yet.
-4. Before real (non-demo) use, see README "Go live":
+⚠️ **`npm run db:seed` deletes all 24 extra accounts and everything testers have done.** To re-create them, write a short `tsx` script using the tables above, or add them under Admin → Employees.
+
+### Done in the 2026-11-03 session
+- **Navigation fix.** Users had to click pages several times and reload. Measured on the live site before the fix: 0.8–5 s per click with no visual feedback (once 35 s), and ~10 s to log in. Causes:
+  - Vercel ran the server code in `iad1` (US East) while Neon is in Singapore (~230 ms per query).
+  - There were no `loading.tsx` files, so a click showed nothing until the server finished.
+  - Fixes (details under Decisions): region `sin1`, section-level loading skeletons, pending spinners, in-place filters, fewer DB round trips, `retry()` on error pages, and an error page inside the app shell.
+  - **Verified live after the fix:** click feedback in 30–70 ms, pages loaded in 0.25–0.9 s (usually ~0.35 s), login ~2 s, no browser errors.
+- **Removed the "Demo accounts" box** from `/login`. E2E logins now type the credentials (`e2e/helpers.ts`).
+- **New E2E spec `e2e/8-navigation.spec.ts`:**
+  - every sidebar link opens on the first click
+  - filters update the page in place
+  - month switching
+  - the login page has no demo box
+- **Fixed deploys:** pointed Vercel at `Attendance` (see "Where things live").
+- **Created the 24 extra accounts** listed above.
+- **Tests at the end of the session:** lint, typecheck, 61 unit tests and 12 E2E tests all pass. The full E2E suite also passed with ~240 ms of added database latency.
+
+### Open items / next steps
+1. **Collect feedback from testers** and turn it into a v2 plan. Keep v1 behaviour stable while they test.
+2. **Pushing to `main` changes the live site that testers are using.** For risky changes, test locally first. Preview deployments from another branch would only work if the Vercel env vars are also ticked for Preview.
+3. Run the manual checks on the live site: check in → apply leave → manager approves → admin exports CSV, and check on a phone.
+4. Set real branding under Admin → Branding, and verify festival holiday dates under Admin → Manage holidays.
+5. **Don't re-seed production while testers use it** (see the ⚠️ above). If a fresh demo is ever needed, re-seed on a stable connection and then re-create the 24 extra accounts.
+6. Before real (non-demo) use, see README "Go live":
    - stop seeding
-   - deactivate the demo accounts or change their passwords
-5. Possible v2 ideas, mentioned in chat but not built: login rate-limiting (Upstash Redis), attendance regularization, notifications. The README has the full v2 list.
+   - deactivate the demo, tester and test accounts, or change their passwords
+7. Possible v2 ideas, mentioned in chat but not built: login rate-limiting (Upstash Redis), attendance regularization, notifications. The README has the full v2 list.
 
 ### Environment quirks (user's Windows laptop)
 - **Node 26 is installed system-wide** (upgraded from 20.16 for Neon/Prisma). npm 11 holds back package install scripts until approved. If Prisma breaks after a fresh install, run `npm install-scripts approve prisma @prisma/engines esbuild`.
 - **The VS Code terminal is Git Bash.** Use bash syntax with quoted paths, e.g. `"/c/Program Files/Cloudflare/Cloudflare WARP/warp-cli.exe" settings`. PowerShell's `&` syntax won't work there.
+  - Git Bash rewrites arguments that start with `/` into Windows paths (`/holidays` became `E:/Git/holidays`). Prefix the command with `MSYS_NO_PATHCONV=1` when passing URL paths to scripts.
 - **Network:** the user is often on an **iPhone hotspot**.
   - The hotspot's DNS refuses to resolve Neon hostnames, so **Cloudflare One Client (WARP)** must be on. It's a personal free account; settings are changeable.
   - Full WARP tunnel mode was flaky (TLS resets on Postgres and HTTPS). Recommended mode: **DNS only** (`warp-cli mode doh`). Fallback: full mode with the WireGuard tunnel protocol.
+  - The connection drops now and then. A polling script that checks for something *missing* (e.g. "Demo accounts" not on the page) will report a false success when a request comes back empty. Check for something that must be present instead.
+  - The user sometimes works remotely from a phone. If the laptop goes offline, Claude stops too.
 - **From the laptop, Neon is slow:** about 260 ms per query and 3–7 s per new connection.
   - E2E tests against Neon need `E2E_SLOW=1`.
-  - Prefer running E2E tests against the **local** DB (`npm run db:local`, URL `postgresql://postgres:postgres@localhost:5433/attendance`). Set both `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to it in the shell before running.
+  - Prefer running E2E tests against the **local** DB (`npm run db:local`, URL `postgresql://postgres:postgres@localhost:5433/attendance`). Set both `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to it in the shell before running. The embedded Postgres from `db:local` may already be running on port 5433.
+  - To reproduce production-like slowness locally, run a small Node TCP proxy that delays each packet by ~120 ms in front of port 5433. Point the app's `DATABASE_URL` at the proxy, and keep `DATABASE_URL_UNPOOLED` direct so seeding stays fast.
 - **An empty stray folder `C:\c`** was accidentally created earlier. The user was asked to delete it; Claude's safety check blocked the deletion.
 
 ### Guardrails for agents
-- `npm run db:seed` and `npm run test:e2e` **wipe the database** they point at. Check which `DATABASE_URL` is active first. Don't run them against Neon production unless the user explicitly asks.
+- **Pushing to `main` deploys to production** (the live site testers use) within about a minute. Ask before pushing.
+- `npm run db:seed` and `npm run test:e2e` **wipe the database** they point at. Check which `DATABASE_URL` is active first. The local `.env` points at **production**. Don't run them against Neon production unless the user explicitly asks; it would also delete the 24 extra accounts.
+- Any script run with the default `.env` writes to the **live database**.
 - Playwright **reuses any server already on port 3100** (`reuseExistingServer`). A leftover `next start -p 3100` from an earlier run serves old code (maybe pointed at another database). Stop it before `npm run test:e2e`.
-- The seed now runs in **one transaction**, so a dropped connection changes nothing and it's safe to retry.
+- The seed runs in **one transaction**, so a dropped connection changes nothing and it's safe to retry.
 - Prisma blocks `prisma migrate reset` from AI agents without explicit user consent. Don't bypass it.
+- Claude Code's safety check blocks pushing to a GitHub repo other than `origin` unless the user approves it.
 - Ask before pushing, deploying, or changing system or network settings.
 
 ## How to verify
 
 - `npm run lint`, `npm run typecheck`, `npm run build`
 - `npm test` (Vitest, rules module)
-- `npm run test:e2e` (Playwright; needs a local database — see README)
+- `npm run test:e2e` (Playwright; needs a local database — see README). 12 tests, including `e2e/8-navigation.spec.ts`.
+- Live site: `x-vercel-id` contains `sin1`. GitHub shows a "Vercel" success status on the latest `main` commit.
 
 ## Decisions
 
