@@ -32,12 +32,14 @@ Password `Demo@1234` for all. The one-click demo buttons were removed from `/log
 - `admin@example.com`: Kavita Iyer, HR Admin
 
 ### Guest accounts for testers (created 2026-11-03 in the Neon production DB)
-15 extra accounts the user can hand out. Each has its own random password, given to the user in chat only. The passwords are **not** in the repo, which is public. They were created directly in the database, not by the seed. Employee N reports to manager N, so a tester pair can try apply → approve. All joined "today". Managers report to `admin@example.com`.
+15 extra accounts the user can hand out. All use the shared demo password `Demo@1234`; they briefly had unique passwords, but the user found that confusing. They were created directly in the database, not by the seed. Employee N reports to manager N, so a tester pair can try apply → approve. All joined "today". Managers report to `admin@example.com`.
 - `employee1@example.com` … `employee5@example.com`
 - `manager1@example.com` … `manager5@example.com`
 - `admin1@example.com` … `admin5@example.com` (full HR admin rights)
 
-⚠️ **`npm run db:seed` deletes these accounts.** If the database is re-seeded, they must be re-created, which means new passwords to hand out again.
+⚠️ **`npm run db:seed` deletes these accounts.** If the database is re-seeded, they must be re-created (same emails, `Demo@1234`).
+
+**Vercel ↔ GitHub:** the Vercel project had no Git connection, so pushes didn't deploy. The user connected it on 2026-11-03 (Settings → Git). Pushes to `main` should now deploy automatically.
 
 ### Navigation speed fix (2026-11-03)
 The user reported that pages didn't open on click (they had to click several times and reload). Measured on the live site: 0.8–5 s per click with no visual feedback (once 35 s), and ~10 s to log in. Causes:
