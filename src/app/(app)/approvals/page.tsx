@@ -2,6 +2,7 @@ import { CheckCheck, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
+import { BackInOffice } from "@/components/leave/back-in-office";
 import { DecideButtons } from "@/components/leave/decide-buttons";
 import { PageHeader } from "@/components/page-header";
 import { LeaveStatusBadge } from "@/components/status-badge";
@@ -11,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
 import { formatDateTime, formatRange } from "@/lib/format";
 import { actionableWhere } from "@/server/approvals";
-import { requestInclude, toRequestRow } from "@/server/leave";
+import { todayKey } from "@/lib/rules";
+import { requestInclude, toRequestRow, withReturnDates } from "@/server/leave";
 import { requireRole } from "@/server/session";
 
 export const metadata: Metadata = { title: "Approvals" };
@@ -42,7 +44,8 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/approv
     return b ? { left: b.allocated - b.used, allocated: b.allocated } : null;
   };
 
-  const pending = pendingRaw.map((r) => ({ ...toRequestRow(r), balance: remaining(r) }));
+  const pending = await withReturnDates(pendingRaw.map((r) => ({ ...toRequestRow(r), balance: remaining(r) })));
+  const today = todayKey();
   const decided = decidedRaw.map(toRequestRow);
 
   return (
@@ -68,7 +71,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/approv
                       <TableHead>Employee</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Dates</TableHead>
-                      <TableHead className="text-right">Days</TableHead>
+                      <TableHead className="text-right">Working days</TableHead>
                       <TableHead>Reason</TableHead>
                       <TableHead>Balance left</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -83,7 +86,10 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/approv
                           </Link>
                         </TableCell>
                         <TableCell>{r.leaveTypeCode}</TableCell>
-                        <TableCell className="whitespace-nowrap">{formatRange(r.start, r.end)}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatRange(r.start, r.end, { weekday: true })}
+                          <BackInOffice back={r.back} today={today} />
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{r.days}</TableCell>
                         <TableCell className="max-w-xs text-sm whitespace-normal">{r.reason}</TableCell>
                         <TableCell className="tabular-nums">

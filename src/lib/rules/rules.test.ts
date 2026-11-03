@@ -18,8 +18,10 @@ import {
   isDateKey,
   isLateCheckIn,
   isWorkingDay,
+  leaveDayBreakdown,
   monthRange,
   rangesOverlap,
+  returnToOffice,
   readableTextColor,
   routeApproval,
   shiftMonth,
@@ -188,6 +190,53 @@ describe("overlap and balance helpers", () => {
     expect(canApproveWithBalance({ allocated: 10, used: 8 }, 2)).toBe(true);
     expect(canApproveWithBalance({ allocated: 10, used: 9 }, 2)).toBe(false);
     expect(canApproveWithBalance(null, 1)).toBe(false);
+  });
+});
+
+describe("back in office after leave", () => {
+  it("is the next day when the leave ends mid-week", () => {
+    // Tue 2026-03-10 .. Wed 2026-03-11 -> back Thu 2026-03-12
+    expect(returnToOffice("2026-03-11", settings, noHolidays)).toEqual({ date: "2026-03-12", afterOtherLeave: false });
+  });
+
+  it("skips the weekend when the leave ends on a Friday", () => {
+    expect(returnToOffice("2026-03-13", settings, noHolidays)?.date).toBe("2026-03-16");
+  });
+
+  it("skips holidays right after the leave", () => {
+    // Leave ends Fri 2026-03-13; Mon 2026-03-16 is a holiday -> back Tue
+    expect(returnToOffice("2026-03-13", settings, new Set(["2026-03-16"]))?.date).toBe("2026-03-17");
+  });
+
+  it("crosses into the next year", () => {
+    // Thu 2026-12-31 -> Fri 2027-01-01 is a holiday -> weekend -> back Mon 2027-01-04
+    expect(returnToOffice("2026-12-31", settings, new Set(["2027-01-01"]))?.date).toBe("2027-01-04");
+  });
+
+  it("skips another leave that follows straight after", () => {
+    // Leave ends Fri 2026-03-13; another leave Mon 16 .. Tue 17 -> back Wed 18
+    const other = [{ start: "2026-03-16", end: "2026-03-17" }];
+    expect(returnToOffice("2026-03-13", settings, noHolidays, other)).toEqual({ date: "2026-03-18", afterOtherLeave: true });
+  });
+
+  it("ignores a later leave with a working day in between", () => {
+    const other = [{ start: "2026-03-17", end: "2026-03-18" }];
+    expect(returnToOffice("2026-03-13", settings, noHolidays, other)).toEqual({ date: "2026-03-16", afterOtherLeave: false });
+  });
+
+  it("returns null when there are no working days at all", () => {
+    expect(returnToOffice("2026-03-13", { workingDays: [] }, noHolidays)).toBeNull();
+  });
+
+  it("labels each day of a leave", () => {
+    // Thu 2026-03-12 .. Mon 2026-03-16, with Fri 13 a holiday
+    expect(leaveDayBreakdown("2026-03-12", "2026-03-16", settings, new Set(["2026-03-13"]))).toEqual([
+      { date: "2026-03-12", kind: "WORKING" },
+      { date: "2026-03-13", kind: "HOLIDAY" },
+      { date: "2026-03-14", kind: "WEEKEND" },
+      { date: "2026-03-15", kind: "WEEKEND" },
+      { date: "2026-03-16", kind: "WORKING" },
+    ]);
   });
 });
 

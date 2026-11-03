@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDateKey } from "@/lib/format";
 import { validateLeaveRequest, type LeaveStatus } from "@/lib/rules/leave";
 import { addDaysKey, isDateKey, yearOf } from "@/lib/rules/time";
 import { applyLeaveAction } from "@/server/leave-actions";
+import { LeavePreview } from "./leave-preview";
 
 export type LeaveTypeOption = {
   id: string;
@@ -23,7 +25,7 @@ export type LeaveTypeOption = {
 type Props = {
   today: string;
   types: LeaveTypeOption[];
-  holidays: string[];
+  holidays: { date: string; name: string }[];
   workingDays: number[];
   existing: { start: string; end: string; status: LeaveStatus }[];
 };
@@ -36,7 +38,8 @@ export function ApplyLeaveForm({ today, types, holidays, workingDays, existing }
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
 
-  const holidaySet = useMemo(() => new Set(holidays), [holidays]);
+  const holidayNames = useMemo(() => new Map(holidays.map((h) => [h.date, h.name])), [holidays]);
+  const holidaySet = useMemo(() => new Set(holidayNames.keys()), [holidayNames]);
   const type = types.find((t) => t.id === leaveTypeId);
 
   // Live preview using the same rules the server enforces.
@@ -88,6 +91,8 @@ export function ApplyLeaveForm({ today, types, holidays, workingDays, existing }
   };
 
   const minDate = addDaysKey(today, -7);
+  // The weekday under each date, so it's obvious when a range runs over a weekend.
+  const weekdayHint = (key: string) => (isDateKey(key) ? formatDateKey(key, "EEEE") : undefined);
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate data-testid="apply-leave-form">
@@ -101,7 +106,7 @@ export function ApplyLeaveForm({ today, types, holidays, workingDays, existing }
         </NativeSelect>
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="startDate" label="Start date" error={errors.startDate}>
+        <Field id="startDate" label="First day of leave" hint={weekdayHint(startDate)} error={errors.startDate}>
           <Input
             type="date"
             {...errorProps("startDate", errors.startDate)}
@@ -113,23 +118,27 @@ export function ApplyLeaveForm({ today, types, holidays, workingDays, existing }
             }}
           />
         </Field>
-        <Field id="endDate" label="End date" error={errors.endDate}>
+        <Field id="endDate" label="Last day of leave" hint={weekdayHint(endDate)} error={errors.endDate}>
           <Input type="date" {...errorProps("endDate", errors.endDate)} min={startDate || minDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </Field>
       </div>
 
       <div className="rounded-lg bg-muted/60 p-3 text-sm" aria-live="polite" data-testid="leave-preview">
-        {!preview ? (
-          <p className="text-muted-foreground">Pick dates to see how many working days this uses.</p>
-        ) : preview.result.ok ? (
-          <p>
-            <span className="font-semibold" data-testid="leave-preview-days">
-              {preview.result.days} working day{preview.result.days === 1 ? "" : "s"}
-            </span>{" "}
-            · {Math.max(0, preview.available)} available → <span className="font-semibold">{preview.available - preview.result.days} left after this</span>
-          </p>
+        {!preview || !type ? (
+          <p className="text-muted-foreground">Pick your dates to see how many working days this uses and when you&apos;ll be back in office.</p>
         ) : (
-          <p className="text-destructive">{preview.result.error}</p>
+          <LeavePreview
+            start={startDate}
+            end={endDate}
+            today={today}
+            result={preview.result}
+            available={preview.available}
+            leaveTypeName={type.name}
+            workingDays={workingDays}
+            holidays={holidaySet}
+            holidayNames={holidayNames}
+            existing={existing}
+          />
         )}
       </div>
 

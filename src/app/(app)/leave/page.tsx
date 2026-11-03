@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { addDaysKey, todayKey, yearOf } from "@/lib/rules";
 import { getHolidays, getSettings } from "@/server/config";
-import { getBalances, getUserRequests } from "@/server/leave";
+import { getBalances, getUserRequests, withReturnDates } from "@/server/leave";
 import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Leave" };
@@ -20,9 +20,10 @@ export default async function LeavePage() {
 
   const [balancesByYear, requests, settings, holidays] = await Promise.all([
     Promise.all(years.map(async (y) => [y, await getBalances(user.id, y)] as const)),
-    getUserRequests(user.id),
+    getUserRequests(user.id).then(withReturnDates),
     getSettings(),
-    getHolidays(`${years[0]}-01-01`, `${years[years.length - 1]}-12-31`),
+    // Into the next January too, so a leave ending on 31 Dec gets the right "back in office" day.
+    getHolidays(`${years[0]}-01-01`, `${years[years.length - 1] + 1}-01-31`),
   ]);
 
   const current = balancesByYear.find(([y]) => y === year)?.[1] ?? [];
@@ -50,13 +51,13 @@ export default async function LeavePage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Apply for leave</CardTitle>
-              <CardDescription>Weekends and holidays aren&apos;t counted.</CardDescription>
+              <CardDescription>Only working days are taken from your balance. Weekends and holidays are free.</CardDescription>
             </CardHeader>
             <CardContent>
               <ApplyLeaveForm
                 today={today}
                 types={types}
-                holidays={holidays.map((h) => h.date)}
+                holidays={holidays.map((h) => ({ date: h.date, name: h.name }))}
                 workingDays={settings.workingDays}
                 existing={existing}
               />

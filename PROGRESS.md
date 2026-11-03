@@ -62,6 +62,19 @@ All HR admins are in the HR department. The 24 extra accounts were created direc
 
 ⚠️ **`npm run db:seed` deletes all 24 extra accounts and everything testers have done.** To re-create them, write a short `tsx` script using the tables above, or add them under Admin → Employees.
 
+### Leave: "back in office" date and clearer day counts (2026-11-03, second session)
+User feedback: a 5-day leave with Sat and Sun in the middle was confusing. It wasn't clear how many working days were used or when the person was back in office. Changes:
+- **Apply form** (`src/components/leave/leave-preview.tsx`):
+  - big "N working days of <type>" line with the balance before and after
+  - a green **"You'll be back in office on <date>"** box. Past leave says "You were back in office on…"; today says "You're back in office today"
+  - a **day-by-day strip**: each date marked Leave / Weekend / holiday name, then the days off after the leave and the "Back" day
+  - a note: "You picked 5 days. Only the 3 working days are taken from your balance; the 2 weekend days aren't counted."
+  - date fields renamed **"First day of leave" / "Last day of leave"**, with the weekday shown under each
+- **"Back in office <date>"** (or "Returned to office" for past leave) under the dates in My requests, the team member page, Approvals and the dashboard's pending list. Dates there now include the weekday. My requests shows "N working days" under the dates instead of a separate Days column, so the table fits next to the form.
+- Date error messages reworded to match the new labels.
+- Rules: `leaveDayKind`, `leaveDayBreakdown`, `returnToOffice` in `src/lib/rules/leave.ts` (8 new unit tests). Server: `withReturnDates` in `src/server/leave.ts`.
+- **Tests:** lint, typecheck, 69 unit tests and 12 E2E tests (local DB) pass. The leave E2E test also checks the back-in-office date.
+
 ### Done in the 2026-11-03 session
 - **Navigation fix.** Users had to click pages several times and reload. Measured on the live site before the fix: 0.8–5 s per click with no visual feedback (once 35 s), and ~10 s to log in. Causes:
   - Vercel ran the server code in `iad1` (US East) while Neon is in Singapore (~230 ms per query).
@@ -117,7 +130,7 @@ All HR admins are in the HR department. The 24 extra accounts were created direc
 ## How to verify
 
 - `npm run lint`, `npm run typecheck`, `npm run build`
-- `npm test` (Vitest, rules module)
+- `npm test` (Vitest, rules module; 69 tests)
 - `npm run test:e2e` (Playwright; needs a local database — see README). 12 tests, including `e2e/8-navigation.spec.ts`.
 - Live site: `x-vercel-id` contains `sin1`. GitHub shows a "Vercel" success status on the latest `main` commit.
 
@@ -155,4 +168,5 @@ Things the spec left open, and the simple option chosen:
 - **Pending hints**: sidebar icons turn into a spinner if a page isn't ready yet (`useLinkStatus`). Month and department pickers show the picked value immediately (`useOptimistic`).
 - **Report and audit filters** use `FilterForm` (`src/components/form/filter-form.tsx`): a client-side GET form with a pending state. Plain `<form method="get">` reloaded the whole page. `next/form` can't report a pending state, because it calls `router.push` directly.
 - **Error pages use `retry()`** (Next 16.3+), which re-fetches the page from the server. `reset()` only re-renders the same failed result, so "Try again" never worked for server errors. `(app)/error.tsx` keeps the sidebar visible when a page fails.
+- **"Back in office"** is the first working day after the leave's last day (skipping weekends and holidays). If the person has another PENDING or APPROVED leave starting right after, those days are skipped too and the UI says so ("after the next leave"). Only PENDING and APPROVED requests show it. It's computed on the fly, not stored, so it follows holiday edits and cancellations.
 - **Database pool** has a 15 s connection timeout, so a stuck connection shows the error page instead of hanging.

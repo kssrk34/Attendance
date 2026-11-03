@@ -1,5 +1,5 @@
-import { type HolidaySet, type WorkSettings, countWorkingDays } from "./calendar";
-import { type DateKey, addDaysKey, yearOf } from "./time";
+import { type HolidaySet, type WorkSettings, countWorkingDays, isWeekend, isWorkingDay } from "./calendar";
+import { type DateKey, addDaysKey, eachDateKey, yearOf } from "./time";
 
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 export type Role = "EMPLOYEE" | "MANAGER" | "ADMIN";
@@ -44,12 +44,12 @@ export type LeaveValidationResult = { ok: true; days: number } | { ok: false; er
 export function validateLeaveRequest(input: LeaveValidationInput): LeaveValidationResult {
   const { start, end, today, settings, holidays } = input;
 
-  if (start > end) return { ok: false, error: "End date can't be before the start date.", field: "end" };
+  if (start > end) return { ok: false, error: "The last day of leave can't be before the first day.", field: "end" };
   if (start < addDaysKey(today, -MAX_BACKDATE_DAYS)) {
-    return { ok: false, error: `Start date can be at most ${MAX_BACKDATE_DAYS} days in the past.`, field: "start" };
+    return { ok: false, error: `The first day of leave can be at most ${MAX_BACKDATE_DAYS} days in the past.`, field: "start" };
   }
   if (yearOf(start) !== yearOf(end)) {
-    return { ok: false, error: "Start and end dates must be in the same calendar year.", field: "end" };
+    return { ok: false, error: "The first and last day of leave must be in the same calendar year. Please apply separately for each year.", field: "end" };
   }
 
   const days = countWorkingDays(start, end, settings, holidays);
@@ -75,6 +75,58 @@ export function validateLeaveRequest(input: LeaveValidationInput): LeaveValidati
   }
 
   return { ok: true, days };
+}
+
+/** How a date inside a leave counts: a working day is taken from the balance, the others are free. */
+export type LeaveDayKind = "WORKING" | "WEEKEND" | "HOLIDAY";
+
+export function leaveDayKind(key: DateKey, settings: Pick<WorkSettings, "workingDays">, holidays: HolidaySet): LeaveDayKind {
+  if (holidays.has(key)) return "HOLIDAY";
+  if (isWeekend(key, settings)) return "WEEKEND";
+  return "WORKING";
+}
+
+/** Every date from start to end (inclusive) with how it counts. */
+export function leaveDayBreakdown(
+  start: DateKey,
+  end: DateKey,
+  settings: Pick<WorkSettings, "workingDays">,
+  holidays: HolidaySet,
+): { date: DateKey; kind: LeaveDayKind }[] {
+  return eachDateKey(start, end).map((date) => ({ date, kind: leaveDayKind(date, settings, holidays) }));
+}
+
+export type ReturnToOffice = {
+  /** The first working day after the leave: the day the person is back in office. */
+  date: DateKey;
+  /** True when another of the person's leaves follows straight after, so it's skipped too. */
+  afterOtherLeave: boolean;
+};
+
+/**
+ * The day someone is back in office after a leave that ends on `end`: the next working day.
+ * Working days covered by `otherLeave` (the person's other PENDING or APPROVED requests) are
+ * skipped as well, so back-to-back requests give the real return date.
+ * Returns null if there's no working day within a year (e.g. no working weekdays configured).
+ */
+export function returnToOffice(
+  end: DateKey,
+  settings: Pick<WorkSettings, "workingDays">,
+  holidays: HolidaySet,
+  otherLeave: Range[] = [],
+): ReturnToOffice | null {
+  let afterOtherLeave = false;
+  let day = end;
+  for (let i = 0; i < 366; i++) {
+    day = addDaysKey(day, 1);
+    if (!isWorkingDay(day, settings, holidays)) continue;
+    if (otherLeave.some((r) => r.start <= day && day <= r.end)) {
+      afterOtherLeave = true;
+      continue;
+    }
+    return { date: day, afterOtherLeave };
+  }
+  return null;
 }
 
 /** Employees can cancel PENDING requests, or APPROVED ones that haven't started yet. */

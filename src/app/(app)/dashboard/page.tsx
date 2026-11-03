@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CheckInCard } from "@/components/attendance/check-in-card";
 import { MonthSummary } from "@/components/attendance/month-view";
 import { EmptyState } from "@/components/empty-state";
+import { BackInOffice } from "@/components/leave/back-in-office";
 import { BalanceCards } from "@/components/leave/balance-cards";
 import { PageHeader } from "@/components/page-header";
 import { LeaveStatusBadge } from "@/components/status-badge";
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { countPendingApprovals } from "@/server/approvals";
 import { getTodayState, getUserDays } from "@/server/attendance";
 import { getHolidays } from "@/server/config";
-import { getBalances, requestInclude, toRequestRow } from "@/server/leave";
+import { getBalances, requestInclude, toRequestRow, withReturnDates } from "@/server/leave";
 import { requireUser } from "@/server/session";
 import { type TeamMember, countToday, getTeam } from "@/server/team";
 
@@ -34,7 +35,9 @@ export default async function DashboardPage() {
     getUserDays(user, start, today),
     getBalances(user.id, year),
     getHolidays(today, `${year + 1}-12-31`),
-    db.leaveRequest.findMany({ where: { userId: user.id, status: "PENDING" }, include: requestInclude, orderBy: { startDate: "asc" } }),
+    db.leaveRequest
+      .findMany({ where: { userId: user.id, status: "PENDING" }, include: requestInclude, orderBy: { startDate: "asc" } })
+      .then((rows) => withReturnDates(rows.map(toRequestRow))),
     countPendingApprovals(user),
     user.role === "EMPLOYEE" ? Promise.resolve([] as TeamMember[]) : getTeam(user),
   ]);
@@ -126,13 +129,14 @@ export default async function DashboardPage() {
                 <EmptyState icon={Hourglass} title="No pending requests" />
               ) : (
                 <ul className="divide-y">
-                  {myPending.map(toRequestRow).map((r) => (
+                  {myPending.map((r) => (
                     <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                       <span>
                         <span className="font-medium">{r.leaveTypeName}</span>
                         <span className="block text-muted-foreground">
-                          {formatRange(r.start, r.end)} · {r.days} day{r.days === 1 ? "" : "s"}
+                          {formatRange(r.start, r.end, { weekday: true })} · {r.days} working day{r.days === 1 ? "" : "s"}
                         </span>
+                        <BackInOffice back={r.back} today={today} />
                       </span>
                       <LeaveStatusBadge status={r.status} />
                     </li>

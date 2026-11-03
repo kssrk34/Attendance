@@ -16,7 +16,7 @@ import { monthTitle, parseMonthParam } from "@/lib/month-param";
 import { dbDateToKey, monthOf, monthRange, todayKey, yearOf } from "@/lib/rules";
 import { getUserDays } from "@/server/attendance";
 import { getSettings } from "@/server/config";
-import { getBalances, getUserRequests } from "@/server/leave";
+import { getBalances, getUserRequests, withReturnDates } from "@/server/leave";
 import { canViewUser, requireRole } from "@/server/session";
 
 export const metadata: Metadata = { title: "Team member" };
@@ -37,7 +37,7 @@ export default async function TeamMemberPage({ params, searchParams }: PageProps
   const [days, settings, requests, balances] = await Promise.all([
     getUserDays(member, start, end),
     getSettings(),
-    getUserRequests(member.id),
+    getUserRequests(member.id).then(withReturnDates),
     getBalances(member.id, yearOf(todayKey())),
   ]);
 

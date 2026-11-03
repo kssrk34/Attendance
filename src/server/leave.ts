@@ -1,7 +1,18 @@
 import "server-only";
 import type { Prisma } from "@/lib/db";
 import { db } from "@/lib/db";
-import { type DateKey, type LeaveStatus, availableBalance, dbDateToKey } from "@/lib/rules";
+import {
+  type DateKey,
+  type LeaveStatus,
+  type ReturnToOffice,
+  addDaysKey,
+  availableBalance,
+  dbDateToKey,
+  keyToDbDate,
+  returnToOffice,
+  yearOf,
+} from "@/lib/rules";
+import { getHolidaySet, getSettings } from "./config";
 
 type Tx = Prisma.TransactionClient | typeof db;
 
@@ -135,6 +146,41 @@ export async function getUserRequests(userId: string, take = 100): Promise<Reque
     take,
   });
   return rows.map(toRequestRow);
+}
+
+export type RequestRowWithReturn<T extends RequestRow = RequestRow> = T & { back: ReturnToOffice | null };
+
+/**
+ * Adds `back` to each row: the day the person is back in office after it.
+ * Only PENDING and APPROVED requests get one (rejected or cancelled leave isn't taken).
+ * The person's other active requests are taken into account, so back-to-back leaves
+ * give the real return date.
+ */
+export async function withReturnDates<T extends RequestRow>(rows: T[]): Promise<RequestRowWithReturn<T>[]> {
+  const active = rows.filter((r) => r.status === "PENDING" || r.status === "APPROVED");
+  if (active.length === 0) return rows.map((r) => ({ ...r, back: null }));
+
+  const firstEnd = active.reduce((min, r) => (r.end < min ? r.end : min), active[0].end);
+  const lastYear = Math.max(...active.map((r) => yearOf(r.end)));
+  const [settings, holidays, others] = await Promise.all([
+    getSettings(),
+    getHolidaySet(addDaysKey(firstEnd, 1), `${lastYear + 1}-12-31`),
+    db.leaveRequest.findMany({
+      where: {
+        userId: { in: [...new Set(active.map((r) => r.userId))] },
+        status: { in: ["PENDING", "APPROVED"] },
+        endDate: { gt: keyToDbDate(firstEnd) },
+      },
+      select: { id: true, userId: true, startDate: true, endDate: true },
+    }),
+  ]);
+  const otherLeave = others.map((o) => ({ id: o.id, userId: o.userId, start: dbDateToKey(o.startDate), end: dbDateToKey(o.endDate) }));
+
+  return rows.map((r) => {
+    if (r.status !== "PENDING" && r.status !== "APPROVED") return { ...r, back: null };
+    const mine = otherLeave.filter((o) => o.userId === r.userId && o.id !== r.id);
+    return { ...r, back: returnToOffice(r.end, settings, holidays, mine) };
+  });
 }
 
 /** Lock a balance row for the rest of the transaction so concurrent requests can't overspend it. */
