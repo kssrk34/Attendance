@@ -48,9 +48,7 @@ The user reported that pages didn't open on click (they had to click several tim
 
 Changes (see Decisions): `vercel.json` region `sin1`, section-level loading skeletons, sidebar/filter pending spinners, in-place report/audit filters, fewer DB round trips, `retry()` on error pages, an error page inside the app shell, and removal of the demo login buttons. All tests pass: lint, typecheck, 61 unit tests and 12 E2E tests (including the new `e2e/8-navigation.spec.ts`). The full E2E suite also passed behind a local proxy adding ~240 ms per DB round trip. With that delay, clicks gave feedback in 50–130 ms.
 
-Pushed to `main` on 2026-11-03.
-1. Confirm the deploy: `curl -sI https://attendanceproject-orpin.vercel.app/login | grep -i x-vercel-id` should show `::sin1::` instead of `::iad1::`. If it still shows `iad1`, check Vercel → Settings → Functions → Region, which may override `vercel.json`.
-2. Re-time live navigation with a read-only script that logs in and clicks each sidebar link. Expect well under 1 s per click.
+**Deployed and verified live on 2026-11-03.** The response header `x-vercel-id` shows `sin1`. A read-only re-time on the live site, as admin and employee, gave: click feedback in 30–70 ms (was 0.8–5 s with none), pages fully loaded in 0.25–0.9 s, usually ~0.35 s (was 0.8–35 s), and login in ~2 s (was ~10 s). No browser errors.
 
 ### Open items / next steps for the user
 1. Run the manual checks on the live site: check in → apply leave → manager approves → admin exports CSV, and check on a phone.
